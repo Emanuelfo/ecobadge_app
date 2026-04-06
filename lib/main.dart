@@ -1,3 +1,25 @@
+// ====================================================================
+// EcoBadge v4.0
+// Arquivo : main.dart
+//
+// ── pubspec.yaml ─────────────────────────────────────────────────────
+//   dependencies:
+//     flutter:
+//       sdk: flutter
+//     mobile_scanner: ^5.2.3
+//     http: ^1.2.1
+//
+//   flutter:
+//     assets:
+//       - assets/eco1.png   # Eco padrão
+//       - assets/eco2.png   # Eco com medalha
+//       - assets/eco3.png   # Eco na árvore
+//
+// ── AndroidManifest.xml ──────────────────────────────────────────────
+//   <uses-permission android:name="android.permission.CAMERA"/>
+//   <uses-permission android:name="android.permission.INTERNET"/>
+// ====================================================================
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -287,7 +309,7 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Seu consumo define o mundo.',
+                          'Seu consumo define o mundo',
                           style: _kSubtitle.copyWith(
                             fontSize: 15,
                             letterSpacing: 0.2,
@@ -340,7 +362,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                   // Indicador de versão
                   Text(
-                    'v1.0  ·  © 2026 EcoBadge',
+                    'v1.3  ·  © 2026 EcoBadge',
                     style: _kCaption.copyWith(fontSize: 10),
                   ),
                   const SizedBox(height: 24),
@@ -535,6 +557,11 @@ class _ScannerScreenState extends State<ScannerScreen>
   bool _processing = false;
   Timer? _debounce;
 
+  // Controle da entrada manual de código de barras
+  final TextEditingController _manualCtrl = TextEditingController();
+  final FocusNode _manualFocus = FocusNode();
+  String _manualError = '';
+
   // Animação da linha de scan
   late final AnimationController _lineCtrl;
   late final Animation<double> _lineAnim;
@@ -557,6 +584,8 @@ class _ScannerScreenState extends State<ScannerScreen>
     _cam.dispose();
     _debounce?.cancel();
     _lineCtrl.dispose();
+    _manualCtrl.dispose();
+    _manualFocus.dispose();
     super.dispose();
   }
 
@@ -655,14 +684,14 @@ class _ScannerScreenState extends State<ScannerScreen>
     return Scaffold(
       backgroundColor: kBackground,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 28),
 
-              // Cabeçalho
+              // ── Cabeçalho ──────────────────────────────────────────
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -675,10 +704,8 @@ class _ScannerScreenState extends State<ScannerScreen>
                           style: _kSubtitle.copyWith(fontSize: 13)),
                     ],
                   ),
-                  // Badge de pontos
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: kGreen.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(40),
@@ -692,64 +719,30 @@ class _ScannerScreenState extends State<ScannerScreen>
                 ],
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
 
-              // Ilustração central — mascote + área de scan estilizada
+              // ── Mascote + círculo decorativo ───────────────────────
               Center(
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Círculo de fundo decorativo
                     Container(
-                      width: 220,
-                      height: 220,
+                      width: 200,
+                      height: 200,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: kGreen.withOpacity(0.08),
-                        border: Border.all(
-                            color: kGreen.withOpacity(0.15), width: 1.5),
+                        border: Border.all(color: kGreen.withOpacity(0.15), width: 1.5),
                       ),
                     ),
-                    // Mascote eco1
-                    EcoImage(
-                        asset: EcoAssets.scan, size: 170),
+                    EcoImage(asset: EcoAssets.scan, size: 160),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
-              // Card de instruções
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: kSurface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: kDivider),
-                ),
-                child: Column(
-                  children: [
-                    _InstructionRow(
-                      step: '1',
-                      text: 'Clique em "Ativar Scanner" abaixo',
-                    ),
-                    const Divider(height: 20),
-                    _InstructionRow(
-                      step: '2',
-                      text: 'Aponte para o código de barras do produto',
-                    ),
-                    const Divider(height: 20),
-                    _InstructionRow(
-                      step: '3',
-                      text: 'Veja a pontuação de sustentabilidade',
-                    ),
-                  ],
-                ),
-              ),
-
-              const Spacer(),
-
-              // Botão principal
+              // ── Botão principal: ativar câmera ─────────────────────
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -764,9 +757,57 @@ class _ScannerScreenState extends State<ScannerScreen>
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
 
-              // Botão de demonstração
+              // ── Divisor visual ─────────────────────────────────────
+              Row(children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('ou digite o código', style: _kCaption),
+                ),
+                const Expanded(child: Divider()),
+              ]),
+
+              const SizedBox(height: 16),
+
+              // ── Campo de entrada manual ────────────────────────────
+              _ManualBarcodeField(
+                controller: _manualCtrl,
+                focusNode: _manualFocus,
+                errorText: _manualError.isEmpty ? null : _manualError,
+                onSubmit: _submitManual,
+                onChanged: (_) {
+                  if (_manualError.isNotEmpty) {
+                    setState(() => _manualError = '');
+                  }
+                },
+              ),
+
+              const SizedBox(height: 24),
+
+              // ── Card de instruções ─────────────────────────────────
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: kSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: kDivider),
+                ),
+                child: Column(
+                  children: [
+                    _InstructionRow(step: '1', text: 'Ative a câmera ou digite o código acima'),
+                    const Divider(height: 20),
+                    _InstructionRow(step: '2', text: 'Aponte para o código de barras do produto'),
+                    const Divider(height: 20),
+                    _InstructionRow(step: '3', text: 'Receba a análise de sustentabilidade completa'),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ── Demo ───────────────────────────────────────────────
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -776,7 +817,7 @@ class _ScannerScreenState extends State<ScannerScreen>
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
             ],
           ),
         ),
@@ -875,11 +916,9 @@ class _ScannerScreenState extends State<ScannerScreen>
   // ── UI: Resultado ────────────────────────────────────────────────────
   Widget _buildResult() {
     final p = _product!;
-    final mascotAsset =
-    p.ecoScore >= 70 ? EcoAssets.medal : EcoAssets.standard;
-
+    final mascotAsset = p.ecoScore >= 70 ? EcoAssets.medal : EcoAssets.standard;
     final ecoMsg = p.ecoScore >= 80
-        ? 'Ótima escolha! Este produto tem excelente pontuação de sustentabilidade.'
+        ? 'Ótima escolha! Este produto tem excelente pontuação ambiental.'
         : p.ecoScore >= 60
         ? 'Boa escolha. Lembre-se de descartar a embalagem corretamente.'
         : 'Existem alternativas mais sustentáveis. Considere opções orgânicas.';
@@ -889,37 +928,47 @@ class _ScannerScreenState extends State<ScannerScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // Barra de voltar
-            _BackBar(label: 'Resultado do Scan', onBack: _resetToIdle),
-
+            _BackBar(label: 'Análise do Produto', onBack: _resetToIdle),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 1. Card principal do produto
                     _ProductCard(product: p),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
+
+                    // 2. Visão geral expandida (tipo, impacto, sustentabilidade)
+                    _ProductOverviewCard(product: p),
+                    const SizedBox(height: 12),
+
+                    // 3. EcoScore com barra de progresso
                     _EcoScoreCard(score: p.ecoScore),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
+
+                    // 4. Card explicando a pontuação com razões
+                    if (p.scoreReasons.isNotEmpty) ...[
+                      _ScoreBreakdownCard(product: p),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // 5. Detalhes técnicos (embalagem, ingredientes, certificações)
                     if (p.hasDetails) ...[
                       _DetailsCard(product: p),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                     ],
-                    // Eco com feedback visual contextual
-                    EcoBubble(
-                      asset: mascotAsset,
-                      message: ecoMsg,
-                      mascotSize: 68,
-                    ),
-                    const SizedBox(height: 22),
-                    // Novo scan
+
+                    // 6. Balão do Eco com mensagem contextual
+                    EcoBubble(asset: mascotAsset, message: ecoMsg, mascotSize: 64),
+                    const SizedBox(height: 20),
+
+                    // 7. Ações
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: _startScanning,
-                        icon: const Icon(Icons.qr_code_scanner_rounded,
-                            size: 18),
+                        icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
                         label: const Text('Escanear outro produto'),
                       ),
                     ),
@@ -984,6 +1033,22 @@ class _ScannerScreenState extends State<ScannerScreen>
           ),
         ),
       );
+
+  // ── Submete o código digitado manualmente ───────────────────────────
+  void _submitManual() {
+    final code = _manualCtrl.text.trim();
+    if (code.isEmpty) {
+      setState(() => _manualError = 'Digite um código de barras.');
+      return;
+    }
+    if (!RegExp(r'^\d{4,20}$').hasMatch(code)) {
+      setState(() => _manualError = 'Código inválido. Use apenas números (4-20 dígitos).');
+      return;
+    }
+    setState(() => _manualError = '');
+    _manualFocus.unfocus();
+    _fetch(code);
+  }
 
   // Demo: seleciona um código de produto local
   void _runDemo() {
@@ -1505,6 +1570,378 @@ class _DetailRow extends StatelessWidget {
   );
 }
 
+// ====================================================================
+// WIDGET: _ManualBarcodeField — campo de entrada manual do código
+// ====================================================================
+class _ManualBarcodeField extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String? errorText;
+  final VoidCallback onSubmit;
+  final ValueChanged<String> onChanged;
+
+  const _ManualBarcodeField({
+    required this.controller,
+    required this.focusNode,
+    required this.onSubmit,
+    required this.onChanged,
+    this.errorText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label
+        const Text('Código de barras', style: _kCaption),
+        const SizedBox(height: 6),
+
+        // Campo + botão buscar na mesma linha
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                focusNode: focusNode,
+                onChanged: onChanged,
+                // Submete ao pressionar "done" no teclado numérico
+                onSubmitted: (_) => onSubmit(),
+                keyboardType: TextInputType.number,
+                // Aceita apenas dígitos
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                maxLength: 20,
+                decoration: InputDecoration(
+                  hintText: 'Ex: 7891910000197',
+                  hintStyle: _kCaption.copyWith(fontSize: 13),
+                  errorText: errorText,
+                  counterText: '', // oculta o contador de caracteres
+                  prefixIcon: const Icon(Icons.tag_rounded,
+                      color: kMidGray, size: 20),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 14),
+                  filled: true,
+                  fillColor: kSurface,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: kDivider),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: kGreen, width: 1.5),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                    BorderSide(color: Colors.red.shade400, width: 1.2),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                    BorderSide(color: Colors.red.shade400, width: 1.5),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Botão buscar — alinhado à linha de base do TextField
+            SizedBox(
+              height: 50,
+              child: ElevatedButton(
+                onPressed: onSubmit,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Buscar',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ====================================================================
+// WIDGET: _ProductOverviewCard — visão geral expandida do produto
+// Exibe tipo, impacto ambiental e nível de sustentabilidade
+// ====================================================================
+class _ProductOverviewCard extends StatelessWidget {
+  final ProductData product;
+
+  const _ProductOverviewCard({required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Visão Geral', style: _kTitle),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _OverviewItem(
+                    icon: Icons.category_outlined,
+                    label: 'Tipo',
+                    value: product.productType.isNotEmpty
+                        ? product.productType
+                        : product.category,
+                  ),
+                ),
+                _vDivider(),
+                Expanded(
+                  child: _OverviewItem(
+                    icon: Icons.eco_outlined,
+                    label: 'Impacto',
+                    value: product.resolvedImpact,
+                    valueColor: _impactColor(product.resolvedImpact),
+                  ),
+                ),
+                _vDivider(),
+                Expanded(
+                  child: _OverviewItem(
+                    icon: Icons.thumb_up_alt_outlined,
+                    label: 'Nível',
+                    value: product.resolvedSustainability,
+                    valueColor: _sustainColor(product.ecoScore),
+                  ),
+                ),
+              ],
+            ),
+            if (product.countries.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              Row(children: [
+                const Icon(Icons.location_on_outlined,
+                    size: 16, color: kMidGray),
+                const SizedBox(width: 6),
+                Text('Origem: ', style: _kCaption),
+                Text(product.countries,
+                    style: _kBody.copyWith(fontSize: 12)),
+              ]),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _vDivider() => Container(
+    width: 1, height: 48, color: kDivider,
+    margin: const EdgeInsets.symmetric(horizontal: 4),
+  );
+
+  Color _impactColor(String impact) {
+    switch (impact) {
+      case 'Baixo':  return Colors.green.shade600;
+      case 'Médio':  return Colors.orange.shade600;
+      default:       return Colors.red.shade600;
+    }
+  }
+
+  Color _sustainColor(int score) {
+    if (score >= 80) return Colors.green.shade600;
+    if (score >= 60) return kGreenDark;
+    if (score >= 40) return Colors.orange.shade600;
+    return Colors.red.shade600;
+  }
+}
+
+class _OverviewItem extends StatelessWidget {
+  final IconData icon;
+  final String label, value;
+  final Color? valueColor;
+
+  const _OverviewItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: kGreen, size: 20),
+        const SizedBox(height: 6),
+        Text(label, style: _kCaption),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: valueColor ?? kDarkGray,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+// ====================================================================
+// WIDGET: _ScoreBreakdownCard — explica por que o produto recebeu
+// aquela pontuação, listando fatores positivos e negativos
+// ====================================================================
+class _ScoreBreakdownCard extends StatelessWidget {
+  final ProductData product;
+
+  const _ScoreBreakdownCard({required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final positives = product.scoreReasons.where((r) => r.positive).toList();
+    final negatives = product.scoreReasons.where((r) => !r.positive).toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cabeçalho
+            Row(children: [
+              const Icon(Icons.analytics_outlined, color: kGreen, size: 18),
+              const SizedBox(width: 8),
+              const Text('Por que essa pontuação?', style: _kTitle),
+            ]),
+            const SizedBox(height: 6),
+            Text(
+              'Fatores que influenciaram o Ecopoint deste produto:',
+              style: _kCaption.copyWith(fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+
+            // Fatores positivos
+            if (positives.isNotEmpty) ...[
+              _ReasonGroupLabel(
+                icon: Icons.add_circle_outline_rounded,
+                label: 'Pontos positivos',
+                color: Colors.green.shade600,
+              ),
+              const SizedBox(height: 8),
+              ...positives.map((r) => _ReasonRow(reason: r)),
+            ],
+
+            // Separador entre grupos
+            if (positives.isNotEmpty && negatives.isNotEmpty)
+              const SizedBox(height: 10),
+
+            // Fatores negativos
+            if (negatives.isNotEmpty) ...[
+              _ReasonGroupLabel(
+                icon: Icons.remove_circle_outline_rounded,
+                label: 'Pontos negativos',
+                color: Colors.red.shade500,
+              ),
+              const SizedBox(height: 8),
+              ...negatives.map((r) => _ReasonRow(reason: r)),
+            ],
+
+            // Nota de rodapé
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: kBeige.withOpacity(0.25),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'A pontuação é calculada com base em dados ambientais, embalagem e certificações do produto.',
+                style: _kCaption.copyWith(fontSize: 11, color: kMidGray),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReasonGroupLabel extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _ReasonGroupLabel({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Icon(icon, color: color, size: 15),
+      const SizedBox(width: 5),
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    ]);
+  }
+}
+
+class _ReasonRow extends StatelessWidget {
+  final ScoreReason reason;
+
+  const _ReasonRow({required this.reason});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = reason.positive ? Colors.green.shade600 : Colors.red.shade500;
+    final bgColor =
+    reason.positive ? Colors.green.withOpacity(0.06) : Colors.red.withOpacity(0.05);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(children: [
+        Icon(reason.icon, size: 16, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            reason.label,
+            style: _kBody.copyWith(fontSize: 13, color: kDarkGray),
+          ),
+        ),
+        Icon(
+          reason.positive
+              ? Icons.arrow_upward_rounded
+              : Icons.arrow_downward_rounded,
+          size: 14,
+          color: color,
+        ),
+      ]),
+    );
+  }
+}
+
 // ── Componentes comuns ────────────────────────────────────────────────
 class _Chip extends StatelessWidget {
   final String label;
@@ -1543,6 +1980,7 @@ class _KV extends StatelessWidget {
 class ProductService {
   static const _api = 'https://world.openfoodfacts.org/api/v0/product';
 
+  // ── Banco local com dados enriquecidos ───────────────────────────────
   static const Map<String, ProductData> _local = {
     '7891910000197': ProductData(
       name: 'Arroz Integral Orgânico',
@@ -1555,6 +1993,15 @@ class ProductService {
       ingredients: 'Arroz integral orgânico',
       labels: ['Orgânico Brasil', 'IBD'],
       imageUrl: null,
+      productType: 'Alimento',
+      environmentalImpact: 'Baixo',
+      sustainabilityLevel: 'Muito sustentável',
+      scoreReasons: [
+        ScoreReason(label: 'Produto orgânico certificado', positive: true,  icon: Icons.eco_rounded),
+        ScoreReason(label: 'Embalagem biodegradável',      positive: true,  icon: Icons.recycling_rounded),
+        ScoreReason(label: 'Produção nacional',            positive: true,  icon: Icons.flag_rounded),
+        ScoreReason(label: 'Sem agrotóxicos',              positive: true,  icon: Icons.spa_rounded),
+      ],
     ),
     '7894900011517': ProductData(
       name: 'Refrigerante Cola',
@@ -1564,10 +2011,18 @@ class ProductService {
       quantity: '350 ml',
       packaging: 'Lata de alumínio reciclável',
       countries: 'Brasil',
-      ingredients:
-      'Água gaseificada, açúcar, extrato de noz de cola, caramelo, ácido fosfórico, cafeína',
+      ingredients: 'Água gaseificada, açúcar, extrato de noz de cola, caramelo, ácido fosfórico, cafeína',
       labels: [],
       imageUrl: null,
+      productType: 'Bebida',
+      environmentalImpact: 'Médio',
+      sustainabilityLevel: 'Moderado',
+      scoreReasons: [
+        ScoreReason(label: 'Embalagem de alumínio reciclável',  positive: true,  icon: Icons.recycling_rounded),
+        ScoreReason(label: 'Alto teor de açúcar',               positive: false, icon: Icons.warning_amber_rounded),
+        ScoreReason(label: 'Aditivos artificiais',              positive: false, icon: Icons.science_outlined),
+        ScoreReason(label: 'Alta pegada de carbono industrial', positive: false, icon: Icons.factory_outlined),
+      ],
     ),
     '7891000315507': ProductData(
       name: 'Água Mineral Natural',
@@ -1580,6 +2035,14 @@ class ProductService {
       ingredients: 'Água mineral natural',
       labels: ['ISO 14001'],
       imageUrl: null,
+      productType: 'Bebida',
+      environmentalImpact: 'Baixo',
+      sustainabilityLevel: 'Sustentável',
+      scoreReasons: [
+        ScoreReason(label: 'Produto natural, sem aditivos',       positive: true,  icon: Icons.water_drop_rounded),
+        ScoreReason(label: 'Certificação ambiental ISO 14001',    positive: true,  icon: Icons.verified_rounded),
+        ScoreReason(label: 'Garrafa PET — descarte correto exigido', positive: false, icon: Icons.delete_outline_rounded),
+      ],
     ),
   };
 
@@ -1599,6 +2062,7 @@ class ProductService {
   }
 
   static ProductData _parse(Map<String, dynamic> p) {
+    // ── EcoScore ────────────────────────────────────────────────────────
     int eco = 50;
     final raw = p['ecoscore_score'];
     if (raw != null) {
@@ -1606,15 +2070,11 @@ class ProductService {
     } else {
       final ns = (p['nutriscore_grade'] as String? ?? '').toUpperCase();
       eco = switch (ns) {
-        'A' => 85,
-        'B' => 70,
-        'C' => 55,
-        'D' => 40,
-        'E' => 25,
-        _ => 50
+        'A' => 85, 'B' => 70, 'C' => 55, 'D' => 40, 'E' => 25, _ => 50
       };
     }
 
+    // ── Categoria ────────────────────────────────────────────────────────
     String cat = 'Produto alimentar';
     final cats = p['categories'] as String? ?? '';
     if (cats.isNotEmpty) {
@@ -1625,39 +2085,117 @@ class ProductService {
       }
     }
 
+    // ── Certificações ────────────────────────────────────────────────────
     final lTags = p['labels_tags'] as List<dynamic>? ?? [];
     final labels = lTags
-        .map((l) => l
-        .toString()
+        .map((l) => l.toString()
         .replaceAll(RegExp(r'^[a-z]{2}:'), '')
         .replaceAll('-', ' '))
         .where((l) => l.isNotEmpty)
         .take(3)
         .toList();
 
+    // ── Tipo do produto (heurístico) ─────────────────────────────────────
+    final ptype = _inferType(cat);
+
+    // ── Embalagem ────────────────────────────────────────────────────────
+    final pkg = _s(p['packaging']);
+
+    // ── Score reasons geradas dinamicamente a partir dos dados da API ────
+    final reasons = _buildReasons(eco: eco, packaging: pkg, labels: labels,
+        hasOrganic: labels.any((l) => l.toLowerCase().contains('orgân') ||
+            l.toLowerCase().contains('organic')));
+
     return ProductData(
-      name: _s(p['product_name'] ?? p['product_name_pt'] ?? 'Produto sem nome'),
-      brand: _s(p['brands']),
-      category: cat,
-      ecoScore: eco,
-      quantity: _s(p['quantity']),
-      packaging: _s(p['packaging']),
+      name:        _s(p['product_name'] ?? p['product_name_pt'] ?? 'Produto sem nome'),
+      brand:       _s(p['brands']),
+      category:    cat,
+      ecoScore:    eco,
+      quantity:    _s(p['quantity']),
+      packaging:   pkg,
       ingredients: _s(p['ingredients_text_pt'] ?? p['ingredients_text']),
-      labels: labels,
-      countries: _s(p['countries']),
-      imageUrl: p['image_url'] as String?,
+      labels:      labels,
+      countries:   _s(p['countries']),
+      imageUrl:    p['image_url'] as String?,
+      productType: ptype,
+      scoreReasons: reasons,
     );
+  }
+
+  /// Infere o tipo do produto com base na categoria
+  static String _inferType(String category) {
+    final c = category.toLowerCase();
+    if (c.contains('bebid') || c.contains('drink') || c.contains('juice') || c.contains('suco')) return 'Bebida';
+    if (c.contains('laticín') || c.contains('dairy') || c.contains('leite') || c.contains('queijo')) return 'Laticínio';
+    if (c.contains('higien') || c.contains('cosmet') || c.contains('shampoo')) return 'Higiene';
+    if (c.contains('limpez') || c.contains('clean') || c.contains('deterg')) return 'Limpeza';
+    if (c.contains('snack') || c.contains('biscoito') || c.contains('salgad')) return 'Snack';
+    return 'Alimento';
+  }
+
+  /// Gera lista de razões da pontuação com base nos dados disponíveis
+  static List<ScoreReason> _buildReasons({
+    required int eco,
+    required String packaging,
+    required List<String> labels,
+    required bool hasOrganic,
+  }) {
+    final reasons = <ScoreReason>[];
+    final pkg = packaging.toLowerCase();
+
+    // Fatores positivos
+    if (hasOrganic) {
+      reasons.add(const ScoreReason(label: 'Produto orgânico certificado', positive: true, icon: Icons.eco_rounded));
+    }
+    if (pkg.contains('biodegradável') || pkg.contains('biodegradable')) {
+      reasons.add(const ScoreReason(label: 'Embalagem biodegradável', positive: true, icon: Icons.recycling_rounded));
+    } else if (pkg.contains('reciclável') || pkg.contains('recyclable') || pkg.contains('alumínio')) {
+      reasons.add(const ScoreReason(label: 'Embalagem reciclável', positive: true, icon: Icons.recycling_rounded));
+    } else if (pkg.isNotEmpty) {
+      reasons.add(const ScoreReason(label: 'Embalagem não reciclável', positive: false, icon: Icons.delete_outline_rounded));
+    }
+    if (labels.isNotEmpty) {
+      reasons.add(ScoreReason(label: 'Possui ${labels.length} certificação(ões) ambiental(is)', positive: true, icon: Icons.verified_rounded));
+    }
+
+    // Fatores negativos baseados no score
+    if (eco < 40) {
+      reasons.add(const ScoreReason(label: 'Alto impacto ambiental de produção', positive: false, icon: Icons.factory_outlined));
+    }
+    if (eco < 55 && !hasOrganic) {
+      reasons.add(const ScoreReason(label: 'Sem certificação orgânica', positive: false, icon: Icons.cancel_outlined));
+    }
+
+    // Se não tiver nenhuma razão, gera padrão
+    if (reasons.isEmpty) {
+      if (eco >= 70) {
+        reasons.add(const ScoreReason(label: 'Boas práticas de produção', positive: true, icon: Icons.thumb_up_outlined));
+      } else {
+        reasons.add(const ScoreReason(label: 'Dados ambientais limitados disponíveis', positive: false, icon: Icons.info_outline_rounded));
+      }
+    }
+
+    return reasons;
   }
 
   static String _s(dynamic v) => (v ?? '').toString().trim();
 }
 
+// ====================================================================
+// MODELO: ProductData — dados completos do produto
+// ====================================================================
 class ProductData {
   final String name, brand, category, quantity, packaging, ingredients,
       countries;
   final List<String> labels;
   final int ecoScore;
   final String? imageUrl;
+
+  // Campos enriquecidos de impacto ambiental
+  final String environmentalImpact; // ex: "Baixo", "Médio", "Alto"
+  final String productType;         // ex: "Alimento", "Limpeza", "Higiene"
+  final String sustainabilityLevel; // ex: "Muito Sustentável"
+  final List<ScoreReason> scoreReasons; // razões que explicam a pontuação
 
   const ProductData({
     required this.name,
@@ -1670,10 +2208,47 @@ class ProductData {
     required this.labels,
     required this.countries,
     required this.imageUrl,
+    this.environmentalImpact = '',
+    this.productType = '',
+    this.sustainabilityLevel = '',
+    this.scoreReasons = const [],
   });
 
   bool get hasDetails =>
       packaging.isNotEmpty || ingredients.isNotEmpty || labels.isNotEmpty;
+
+  /// Nível de impacto ambiental derivado do ecoScore, quando não informado
+  String get resolvedImpact {
+    if (environmentalImpact.isNotEmpty) return environmentalImpact;
+    if (ecoScore >= 80) return 'Baixo';
+    if (ecoScore >= 55) return 'Médio';
+    return 'Alto';
+  }
+
+  /// Nível de sustentabilidade derivado do ecoScore
+  String get resolvedSustainability {
+    if (sustainabilityLevel.isNotEmpty) return sustainabilityLevel;
+    if (ecoScore >= 80) return 'Muito sustentável';
+    if (ecoScore >= 65) return 'Sustentável';
+    if (ecoScore >= 50) return 'Moderado';
+    if (ecoScore >= 35) return 'Pouco sustentável';
+    return 'Não sustentável';
+  }
+}
+
+// ====================================================================
+// MODELO: ScoreReason — motivo individual que compõe a pontuação
+// ====================================================================
+class ScoreReason {
+  final String label;      // Texto curto: "Embalagem reciclável"
+  final bool positive;     // true = fator positivo, false = negativo
+  final IconData icon;     // Ícone representativo
+
+  const ScoreReason({
+    required this.label,
+    required this.positive,
+    required this.icon,
+  });
 }
 
 // ====================================================================
@@ -2165,7 +2740,7 @@ class _GamesHeader extends StatelessWidget {
       child: Row(
         children: [
           // eco2 — macaquinho com medalha representa conquista
-          EcoImage(asset: EcoAssets.medal, size: 130),
+          EcoImage(asset: EcoAssets.medal, size: 150),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
